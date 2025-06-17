@@ -1,7 +1,5 @@
 CONTEXTE
 
-3.1
-
 1. On peut envoyer les données de l'utilisateur au serveur avec des requêtes HTTP GET ou POST
 
 2. Ce serait mieux d'utiliser un cookie pour stocker le pseudo plutôt que de l'envoyer à chaque requête.
@@ -10,14 +8,68 @@ Si les données sont passées via l'URL, cela posera des problèmes de sécurit�
 
 3. On peut demander périodiquement au serveur de nous renvoyer la page web d'un canal
 
-3.2
+4. On peut imaginer une route /join avec un corps JSON :
+{
+'pseudo': '...',
+'canal': '...'
+}
 
-4, 5 & 6. Ces questions montrent que c'est important de bien réfléchir à la conception de l'API pour que son utilisation soit la plus pratique possible.
+5. On peut imaginer récupérer un certain nombre de messages pour éviter une charge trop lourde, par exemple les 10 derniers messages
 
-3.3
+6. Il faudrait avoir la spécification détaillée afin de pouvoir faire ce choix au mieux
 
-7.
+7. On pourrait stocker les requêtes dans une sorte de file d'attente. On pourrait aussi se baser sur l'heure d'arrivée de la requête mais rien n'empêche le client de la changer.
 
 8. Un service web ne doit pas tout conserver en mémoire, c'est mieux de stocker les données dans une base de données.
 
 9. Il faut que le serveur puisse supporter le nombre d'utilisateurs
+
+
+LIMITES
+
+2.1
+
+1. Non, clairement pas. Le code deviendrait vite difficile à maintenir.
+
+2 & 3. Cela semble être une bonne idée. On peut savoir rapidement où se trouve une route sans avoir à ouvrir chaque fichier, ce qui rend plus facile l'évolution de l'API
+
+4. Si le service des pseudos est suffisamment isolé, on peut le tester sans devoir tout lancer derrière. Dans l'idéal, il n'a besoin que de la base de données pour fonctionner. On n'aurait donc pas besoin de lancer chaque service pour tester uniquement le service des pseudos
+
+5. Oui on peut, par exemple la librairie Python FastAPI propose une documentation automatique de l'API selon ce qu'on a codé. Cela est très pratique et permet de gagner beaucoup de temps
+
+2.2
+
+1. Si l'API n'est pas découpée, il faudrait faire un refactoring plus ou moins lourd. Par contre si la gestion des pseudos est assurée par un seul service, on peut le modifier sans que cela n'affecte les autres services. Si un autre service l'utilise, il faudrait s'assurer que le format d'échange reste le même (routes et données renvoyées) pour limiter les changements
+
+2. Ce serait possible si les deux applications se partagent les même utilisateurs, ou si les comptes utilisateurs sont dissociés des applications
+
+3. Si on part du principe que les données sont stockées dans une base de données, alors chaque composant communiquera avec cette base pour assure le fonctionnement de l'application
+
+4. Oui, on peut aussi imaginer des API différentes selon les droits de l'utilisateur. Par exemple, une API accessible uniquement par des administrateurs pour accéder à des fonctionnalités particulières
+
+5.
+
+2.3
+
+1. Rien ne nous en empêche
+
+2. Cela permet d'allouer toutes les ressources de plusieurs serveurs à un seul composant. Ici, on peut imaginer que la route /msg sera utilisée intensivement, donc avoir deux serveurs permettrait de rendre les traitements plus rapides. Cependant, il faut trouver un moyen pour que les messages arrivent dans le bon ordre, peut importe le serveur qui les traite
+
+3. Oui si le serveur et l'API sont séparés. Si on séparer l'API en plusieurs services, on peut ainsi mette à jour une partie de l'API sans avoir à arrêter les autres parties, ce qui est très pratique
+
+4. A priori le serveur et l'API seraient les même, à part si on veut traiter différemment les utilisateurs sur mobile, dans ce cas on pourrait imaginer une autre API. Sans différences de traitement, il n'y a que le client qui change. Dans ce cas, au lieu d'un navigateur web ou d'un client lourd, on aurait une application mobile
+
+5. On pourrait utiliser Docker pour déployer l'API. On pourrait imaginer un conteneur par partie de l'API si on décide de la découper en plusieurs services
+
+2.4
+
+1. Ils peuvent toujours discuter entre eux avec une API interne
+
+2. Il faut déplacer l'état partagé dans un endroit accessibles à chaque service, par exemple une base de données
+
+3. On pourrait imaginer une file de messages unique qui serait partagée entre les serveurs. Et, côté serveur, on pourrait attribuer une heure de réception des messages (sans se soucier d'une potentielle modification si on le faisait côté client) avant d'envoyer les messages dans une base de données commune
+
+4. Il faut gérer les erreurs le mieux possible pour éviter plusieurs échecs à la suite : un service qui ne fonctionne plus pourrait en faire planter un, qui à son tour en ferait planter un autre, etc. On peut mettre en place un certain nombre d'essais, par exemple à partir de 3 ou 4 essais on arrête d'appeler le service. Il faudrait aussi penser à "mettre en pause" les requêtes pour ne pas surcharger les structures internes. Par exemple, si le service des messages ne fonctionne plus, est-ce qu'on va vraiment accumuler des milliers/millions de messages dans notre file d'attente ? Je pense que ce serait plus judicieux de juste indiquer aux utilisateurs de réessayer plus tard et tant pis pour leurs messages
+
+5. Chaque service aurait besoin de connaître au minimum la base de données je pense. Selon la complexité de notre application, certains services pourraient communiquer entre eux.
+
